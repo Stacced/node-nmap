@@ -1,6 +1,6 @@
 /*
  * NodeJS <-> NMAP interface
- * Author:  John Horton
+ * Author:  John Horton and Stacked
  * Purpose: Create an interface for NodeJS applications to make use of NMAP installed on the local system.
  */
 
@@ -12,8 +12,7 @@ const fs = require('fs');
 const EventEmitter = require('events').EventEmitter;
 const os = require('os');
 const Queue = require('queued-up');
-const xml2js = require('xml2js');
-
+const xml2json = require('xml2json');
 
 /**
  * 
@@ -106,7 +105,7 @@ class NmapScan extends EventEmitter {
     this.nmapoutputXML = "";
     this.timer;
     this.range = [];
-    this.arguments = ['-oX', '-'];
+    this.arguments = [];
     this.rawData = '';
     this.rawJSON;
     this.child;
@@ -217,18 +216,16 @@ class NmapScan extends EventEmitter {
 
   rawDataHandler(data) {
     let results;
-    //turn NMAP's xml output into a json object
-    xml2js.parseString(data, (err, result) => {
-      if (err) {
-        this.emit('error', "Error converting XML to JSON in xml2js: " + err);
-      } else {
-        this.rawJSON = result;
-        results = convertRawJsonToScanResults(this.rawJSON, (err) => {
-          this.emit('error', "Error converting raw json to cleans can results: " + err + ": " + this.rawJSON);
-        });
-        this.scanComplete(results);
-      }
-    });
+    //Turn NMAP's xml output into a json object (only if it's enabled of course), otherwise return raw NMAP output
+    if (this.arguments.includes('-oX')) {
+      this.rawJSON = xml2json.toJson(data);
+      results = convertRawJsonToScanResults(this.rawJSON, (err) => {
+        this.emit('error', "Error converting raw json to cleans can results: " + err + ": " + this.rawJSON);
+      });
+      this.scanComplete(results);
+    } else {
+      this.scanComplete(data);
+    }
   }
 }
 
