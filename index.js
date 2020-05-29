@@ -12,7 +12,7 @@ const fs = require('fs');
 const EventEmitter = require('events').EventEmitter;
 const os = require('os');
 const Queue = require('queued-up');
-const xml2json = require('xml2json');
+const xml2js = require('xml2js');
 
 /**
  * 
@@ -217,12 +217,18 @@ class NmapScan extends EventEmitter {
   rawDataHandler(data) {
     let results;
     //Turn NMAP's xml output into a json object (only if it's enabled of course), otherwise return raw NMAP output
-    if (this.arguments.includes('-oX')) {
-      this.rawJSON = xml2json.toJson(data);
-      results = convertRawJsonToScanResults(this.rawJSON, (err) => {
-        this.emit('error', "Error converting raw json to cleans can results: " + err + ": " + this.rawJSON);
+    if (this.command.includes('-oX')) {
+      xml2js.parseString(data, (err, result) => {
+        if (err) {
+          this.emit('error', 'Error parsing raw XML data')
+        } else {
+          this.rawJSON = result;
+          results = convertRawJsonToScanResults(this.rawJSON, (err) => {
+            this.emit('error', "Error converting raw json to cleans can results: " + err + ": " + this.rawJSON);
+          });
+          this.scanComplete(results);
+        }
       });
-      this.scanComplete(results);
     } else {
       this.scanComplete(data);
     }
